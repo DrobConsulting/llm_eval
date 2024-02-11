@@ -1,28 +1,37 @@
 import re
 
 def eval_llm_output(llm_output, test_list):
-
     try:
         # Step 1: Extract the Python function code and function name from the LLM output
         function_code = re.search(r'\[PYTHON\](.*?)\[/PYTHON\]', llm_output, re.DOTALL).group(1).strip()
         function_name = re.search(r'def (\w+)\(', function_code).group(1)
-    except:
-        print('parsing failed')
+    except Exception as e:
+        print('parsing failed:', e)
         return False
     
     # Prepare the environment to execute the code
     exec_globals = {}
     exec(function_code, exec_globals)
     
-    # Step 2: Modify the `test_list` to match the extracted function name
-    modified_test_list = [re.sub(r'\bmaximum_Sum\b', function_name, test) for test in test_list]
+    # Step 2: Dynamically modify the `test_list` to use the extracted function name
+    modified_test_list = []
+    for test in test_list:
+        try:
+            # Extracting the existing function name pattern from the test case
+            pattern = re.search(r'assert (\w+)\(', test).group(1)
+            # Replace the extracted pattern with the correct function name
+            modified_test = test.replace(pattern, function_name)
+            modified_test_list.append(modified_test)
+        except Exception as e:
+            print('Error modifying test case:', e)
+            return False
     
     # Step 3: Execute the modified test cases
     try:
         for test in modified_test_list:
             exec(test, exec_globals)
-    except:
-        print('test case failed')
+    except Exception as e:
+        print('test case failed:', e)
         return False
     
     # If all tests pass without an assertion error

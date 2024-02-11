@@ -50,6 +50,58 @@ def test_eval_llm_output_failure():
     
     assert eval_llm_output(llm_output, test_list) == False
 
+def test_eval_llm_output_sphere_volume_success():
+    llm_output = """
+    [PYTHON]
+    def get_sphere_volume(radius):
+        import math
+        return (4/3) * math.pi * radius**3
+    [/PYTHON]
+    [TESTS]
+    # Test case 1:
+    assert get_sphere_volume(0) == 0
+    # Test case 2:
+    assert get_sphere_volume(1) == 4.1887902047863905
+    # Test case 3:
+    assert get_sphere_volume(2) == 33.510321638291124
+    # Test case 4:
+    assert get_sphere_volume(3) == 58.80366257049417
+    # Test case 5:
+    assert get_sphere_volume(4) == 86.69488738333614
+    [/TESTS]
+    """
+    test_list = [
+        'assert volume_sphere(10) == 4188.790204786391',
+        'assert volume_sphere(25) == 65449.84694978735',
+        'assert volume_sphere(20) == 33510.32163829113'
+    ]
+    
+    assert eval_llm_output(llm_output, test_list) == True
+
+def test_eval_llm_output_sphere_volume_failure():
+    llm_output = """
+    [PYTHON]
+    def get_sphere_volume_incorrect(radius):
+        # Incorrect implementation on purpose
+        return 2 * radius**3
+    [/PYTHON]
+    [TESTS]
+    # Test case 1:
+    assert get_sphere_volume_incorrect(0) == 0
+    # Test case 2:
+    assert get_sphere_volume_incorrect(1) != 4.1887902047863905
+    # Test case 3:
+    assert get_sphere_volume_incorrect(2) != 33.510321638291124
+    [/TESTS]
+    """
+    test_list = [
+        'assert volume_sphere(10) == 4188.790204786391',
+        'assert volume_sphere(25) == 65449.84694978735',
+        'assert volume_sphere(20) == 33510.32163829113'
+    ]
+    
+    assert eval_llm_output(llm_output, test_list) == False
+
 # Mock eval_llm_output to simulate different scenarios without running actual evaluations
 @pytest.fixture(autouse=True)
 def mock_eval_llm_output(monkeypatch):

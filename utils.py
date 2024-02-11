@@ -1,10 +1,14 @@
 import re
 
 def eval_llm_output(llm_output, test_list):
-    
-    # Step 1: Extract the Python function code and function name from the LLM output
-    function_code = re.search(r'\[PYTHON\](.*?)\[/PYTHON\]', llm_output, re.DOTALL).group(1).strip()
-    function_name = re.search(r'def (\w+)\(', function_code).group(1)
+
+    try:
+        # Step 1: Extract the Python function code and function name from the LLM output
+        function_code = re.search(r'\[PYTHON\](.*?)\[/PYTHON\]', llm_output, re.DOTALL).group(1).strip()
+        function_name = re.search(r'def (\w+)\(', function_code).group(1)
+    except:
+        print('parsing failed')
+        return False
     
     # Prepare the environment to execute the code
     exec_globals = {}
@@ -18,6 +22,7 @@ def eval_llm_output(llm_output, test_list):
         for test in modified_test_list:
             exec(test, exec_globals)
     except:
+        print('test case failed')
         return False
     
     # If all tests pass without an assertion error

@@ -1,3 +1,5 @@
+import json
+
 MODELS_TOP1 = [
   {
     "name": "custom-model",
@@ -6,7 +8,7 @@ MODELS_TOP1 = [
     "preprompt": "Use Python: ",
     "chatPromptTemplate": "[INST] {{content}} [/INST]",
     "parameters": {
-      "temperature": 0.0,
+      "temperature": 0.1,
       "top_p": 0.95,
       "repetition_penalty": 1.2,
       "top_k": 50,

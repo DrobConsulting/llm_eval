@@ -8,10 +8,14 @@ def eval_llm_output(llm_output, test_list):
     except Exception as e:
         print('parsing failed:', e)
         return False
-    
-    # Prepare the environment to execute the code
-    exec_globals = {}
-    exec(function_code, exec_globals)
+
+    try:
+        # Prepare the environment to execute the code
+        exec_globals = {}
+        exec(function_code, exec_globals)
+    except Exception as e:
+        print('exec failed:', e)
+        return False
     
     # Step 2: Dynamically modify the `test_list` to use the extracted function name
     modified_test_list = []

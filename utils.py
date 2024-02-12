@@ -41,46 +41,55 @@ def eval_llm_output(llm_output, test_list):
     # If all tests pass without an assertion error
     return True
 
-def evaluate_top_outputs_efficient(llm_output_list, top, test_list):
+def eval_llm_top_k(llm_outputs, test_list, k):
     """
-    Efficiently evaluates the top x elements from llm_output_list using eval_llm_output and checks if any
-    of the evaluations up to the top x positions are true, without redundant evaluations.
+    Evaluates LLM outputs against a set of test cases up to a specified number of attempts (k thresholds).
     
-    Parameters:
-    - llm_output_list: List of LLM outputs.
-    - top: List of integers, each indicating up to which position to check for a true evaluation.
-    - test_list: The test cases to be used with eval_llm_output.
-    
+    This function iterates through a list of LLM outputs, applying each to a given list of test cases
+    using the eval_llm_output function, until a successful evaluation is found or the list is exhausted.
+    Success within the bounds of each threshold in 'k' is tracked and reported.
+
+    Args:
+        llm_outputs (list of str): A list of strings, each representing an LLM output that includes
+                                   Python code to be tested.
+        test_list (list of str): A list of test case strings that are to be executed against the LLM output.
+                                 Each test case should be a Python assert statement.
+        k (list of int): A list of integers in increasing order, each representing a threshold for the
+                         number of attempts to find a successful LLM output. The function returns a list
+                         of booleans indicating success within each threshold.
+
     Returns:
-    - A list of booleans, each corresponding to whether any of the top x elements evaluated to true.
+        list of bool: A list of boolean values the same length as 'k'. Each element represents whether
+                      a successful LLM output was found in fewer than or equal to the corresponding number
+                      of attempts. For example, if 'k' is [10, 100] and the seventh LLM output is the first
+                      to pass all tests, the function returns [True, True]. If no successful LLM output is
+                      found within the attempts, or if the successful attempt is beyond a 'k' threshold, the
+                      corresponding value is False.
+
+    Note: This function depends on the eval_llm_output function to evaluate each LLM output. Ensure that
+          eval_llm_output is correctly defined and accessible within the same scope.
     """
-    results = [False] * len(top)  # Initialize result list with False
-    eval_results = []  # Track evaluation results to avoid re-evaluation
+    # Initialize a list to keep track of successes within the k thresholds
+    results = [False] * len(k)
+    # Counter for attempts
+    attempts = 0
+
+    # Loop through each llm_output
+    for llm_output in llm_outputs:
+        attempts += 1
+        # Try evaluating the current llm_output
+        if eval_llm_output(llm_output, test_list):
+            # If eval_llm_output returns True, update results based on attempts
+            for i, threshold in enumerate(k):
+                if attempts <= threshold:
+                    results[i] = True
+            # Since we found a successful attempt, no need to continue
+            break
+        # If we've tried as many times as the largest number in k, stop trying
+        if attempts >= max(k):
+            break
     
-    # Sort top to handle in ascending order; this ensures efficiency in traversal
-    sorted_top_indices = sorted((val, idx) for idx, val in enumerate(top))
-    max_top = sorted_top_indices[-1][0]  # Get the maximum top value for early stopping
-    
-    current_true_found = False
-    for i, llm_output in enumerate(llm_output_list):
-        if i >= max_top:
-            break  # Stop if we've evaluated up to the maximum top value
-        
-        # Evaluate current llm_output only if not already evaluated
-        eval_result = eval_llm_output(llm_output, test_list)
-        eval_results.append(eval_result)
-        
-        if eval_result:
-            current_true_found = True  # Mark true found for this and subsequent top values
-        
-        # Update the results list based on current evaluation
-        for top_val, top_idx in sorted_top_indices:
-            if i < top_val:
-                results[top_idx] = results[top_idx] or current_true_found
-        
-        if current_true_found:
-            # If a true result is found, all subsequent tops are updated, break early if possible
-            if all(results[idx] for _, idx in sorted_top_indices if i < _):
-                break
-    
+    # Return the results list, indicating success within each threshold
     return results
+
+

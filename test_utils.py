@@ -1,5 +1,5 @@
 import pytest
-from utils import eval_llm_output, evaluate_top_outputs_efficient 
+from utils import eval_llm_output, eval_llm_top_k 
 
 def test_eval_llm_output_success():
     llm_output = """
@@ -7,20 +7,12 @@ def test_eval_llm_output_success():
     def max_sum(my_list):
         return max([sum(x) for x in my_list])
     [/PYTHON]
-    [TESTS]
-    # Test case 1:
-    assert max_sum([[1, 2], [3, 4]]) == 7
-    # Test case 2:
-    assert max_sum([[1, 2], [-3, 4]]) == 3
-    # Test case 3:
-    assert max_sum([[-1, -2], [-3, -4]]) == -3
-    [/TESTS]
     """
     test_list = [
-        'assert maximum_Sum([[1,2,3],[4,5,6],[10,11,12],[7,8,9]]) == 33',
-        'assert maximum_Sum([[0,1,1],[1,1,2],[3,2,1]]) == 6',
-        'assert maximum_Sum([[0,1,3],[1,2,1],[9,8,2],[0,1,0],[6,4,8]]) == 19',
-        'assert maximum_Sum([[0,-1,-1],[-1,-1,-2],[-3,-2,-1]]) == -2'
+        'assert max_sum([[1, 2, 3], [4, 5, 6], [10, 11, 12], [7, 8, 9]]) == 33',
+        'assert max_sum([[0, 1, 1], [1, 1, 2], [3, 2, 1]]) == 6',
+        'assert max_sum([[0, 1, 3], [1, 2, 1], [9, 8, 2], [0, 1, 0], [6, 4, 8]]) == 19',
+        'assert max_sum([[0, -1, -1], [-1, -1, -2], [-3, -2, -1]]) == -2'
     ]
     
     assert eval_llm_output(llm_output, test_list) == True
@@ -32,20 +24,12 @@ def test_eval_llm_output_failure():
         # Incorrect implementation on purpose
         return sum([sum(x) for x in my_list])
     [/PYTHON]
-    [TESTS]
-    # Test case 1:
-    assert max_sum_wrong([[1, 2], [3, 4]]) == 7
-    # Test case 2:
-    assert max_sum_wrong([[1, 2], [-3, 4]]) == 3
-    # Test case 3:
-    assert max_sum_wrong([[-1, -2], [-3, -4]]) == -3
-    [/TESTS]
     """
     test_list = [
-        'assert maximum_Sum([[1,2,3],[4,5,6],[10,11,12],[7,8,9]]) == 33',
-        'assert maximum_Sum([[0,1,1],[1,1,2],[3,2,1]]) == 6',
-        'assert maximum_Sum([[0,1,3],[1,2,1],[9,8,2],[0,1,0],[6,4,8]]) == 19',
-        'assert maximum_Sum([[0,-1,-1],[-1,-1,-2],[-3,-2,-1]]) == -2'
+        'assert max_sum_wrong([[1, 2, 3], [4, 5, 6], [10, 11, 12], [7, 8, 9]]) == 33',
+        'assert max_sum_wrong([[0, 1, 1], [1, 1, 2], [3, 2, 1]]) == 6',
+        'assert max_sum_wrong([[0, 1, 3], [1, 2, 1], [9, 8, 2], [0, 1, 0], [6, 4, 8]]) == 19',
+        'assert max_sum_wrong([[0, -1, -1], [-1, -1, -2], [-3, -2, -1]]) == -2'
     ]
     
     assert eval_llm_output(llm_output, test_list) == False
@@ -57,23 +41,11 @@ def test_eval_llm_output_sphere_volume_success():
         import math
         return (4/3) * math.pi * radius**3
     [/PYTHON]
-    [TESTS]
-    # Test case 1:
-    assert get_sphere_volume(0) == 0
-    # Test case 2:
-    assert get_sphere_volume(1) == 4.1887902047863905
-    # Test case 3:
-    assert get_sphere_volume(2) == 33.510321638291124
-    # Test case 4:
-    assert get_sphere_volume(3) == 58.80366257049417
-    # Test case 5:
-    assert get_sphere_volume(4) == 86.69488738333614
-    [/TESTS]
     """
     test_list = [
-        'assert volume_sphere(10) == 4188.790204786391',
-        'assert volume_sphere(25) == 65449.84694978735',
-        'assert volume_sphere(20) == 33510.32163829113'
+        'assert get_sphere_volume(10) == 4188.790204786391',
+        'assert get_sphere_volume(25) == 65449.84694978735',
+        'assert get_sphere_volume(20) == 33510.32163829113'
     ]
     
     assert eval_llm_output(llm_output, test_list) == True
@@ -85,49 +57,52 @@ def test_eval_llm_output_sphere_volume_failure():
         # Incorrect implementation on purpose
         return 2 * radius**3
     [/PYTHON]
-    [TESTS]
-    # Test case 1:
-    assert get_sphere_volume_incorrect(0) == 0
-    # Test case 2:
-    assert get_sphere_volume_incorrect(1) != 4.1887902047863905
-    # Test case 3:
-    assert get_sphere_volume_incorrect(2) != 33.510321638291124
-    [/TESTS]
     """
     test_list = [
-        'assert volume_sphere(10) == 4188.790204786391',
-        'assert volume_sphere(25) == 65449.84694978735',
-        'assert volume_sphere(20) == 33510.32163829113'
+        'assert get_sphere_volume_incorrect(10) == 4188.790204786391',
+        'assert get_sphere_volume_incorrect(25) == 65449.84694978735',
+        'assert get_sphere_volume_incorrect(20) == 33510.32163829113'
     ]
     
     assert eval_llm_output(llm_output, test_list) == False
 
-# Mock eval_llm_output to simulate different scenarios without running actual evaluations
-@pytest.fixture(autouse=True)
-def mock_eval_llm_output(monkeypatch):
-    def mock_return(llm_output, test_list):
-        # Simulate eval_llm_output behavior based on llm_output content
-        return "true" in llm_output
-    monkeypatch.setattr("utils.eval_llm_output", mock_return)  # Adjust the path as necessary
+@pytest.fixture
+def mock_eval_function(monkeypatch):
+    def mock_eval_llm_output(llm_output, test_list):
+        return "success" in llm_output
 
-# Test with various top configurations and expected outcomes
-@pytest.mark.parametrize("llm_output_list, top, expected", [
-    (["true_result"], [1], [True]),
-    (["false_result", "true_result"], [1, 2], [False, True]),
-    (["false_result", "false_result", "true_result"], [1, 2, 3], [False, False, True]),
-    (["true_result", "false_result", "true_result"], [1, 2, 3], [True, True, True]),
-    (["false_result"] * 10 + ["true_result"], [1, 5, 10, 11], [False, False, False, True]),
-])
-def test_evaluate_top_outputs_efficient(llm_output_list, top, expected):
-    assert evaluate_top_outputs_efficient(llm_output_list, top, ["dummy_test"]) == expected
+    monkeypatch.setattr("utils.eval_llm_output", mock_eval_llm_output)
 
-# Test with an empty llm_output_list
-def test_empty_llm_output_list():
-    assert evaluate_top_outputs_efficient([], [1, 2, 3], ["dummy_test"]) == [False, False, False]
+def test_eval_llm_top_k_all_success(mock_eval_function):
+    llm_outputs = ["fail", "fail", "success"]
+    test_list = []  # Test list is irrelevant for this mock
+    k = [3, 4, 5]
+    expected = [True, True, True]
+    actual = eval_llm_top_k(llm_outputs, test_list, k)
+    assert actual == expected
 
-# Test with top values exceeding the llm_output_list length
-def test_top_exceeds_llm_output_list_length():
-    llm_output_list = ["false_result"] * 5 + ["true_result"]
-    top = [5, 10, 15]  # Exceeds the llm_output_list length
-    expected = [False, True, True]  # True for tops that exceed the index of the only true_result
-    assert evaluate_top_outputs_efficient(llm_output_list, top, ["dummy_test"]) == expected
+def test_eval_llm_top_k_partial_success(mock_eval_function):
+    llm_outputs = ["fail"] * 5 + ["success"]
+    test_list = []  # Test list is irrelevant for this mock
+    k = [5, 6, 10]
+    expected = [False, True, True]
+    actual = eval_llm_top_k(llm_outputs, test_list, k)
+    assert actual == expected
+
+def test_eval_llm_top_k_no_success(mock_eval_function):
+    llm_outputs = ["fail"] * 10
+    test_list = []  # Test list is irrelevant for this mock
+    k = [5, 8]
+    expected = [False, False]
+    actual = eval_llm_top_k(llm_outputs, test_list, k)
+    assert actual == expected
+
+def test_eval_llm_top_k_empty_outputs(mock_eval_function):
+    llm_outputs = []
+    test_list = []
+    k = [1, 2]
+    expected = [False, False]
+    actual = eval_llm_top_k(llm_outputs, test_list, k)
+    assert actual == expected
+
+

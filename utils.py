@@ -18,6 +18,7 @@ along with this program. If not, see <http://www.apache.org/licenses/LICENSE-2.0
 """
 
 import re
+from tqdm.asyncio import tqdm
 
 def eval_llm_output(llm_output, test_list):
     try:
@@ -110,5 +111,82 @@ def eval_llm_top_k(llm_outputs, test_list, k):
     
     # Return the results list, indicating success within each threshold
     return results
+
+async def generate_solutions_async(task, tests, MODELS, client, k=10, model_index=0, use_adapter=False, adapter_id=None):
+    solutions = []
+    model = MODELS[model_index]  # Select the model configuration based on the provided index
+    generate_params = model["parameters"]  # Get generation parameters from the model configuration
+
+    # Prepare the prompt using the model's chatPromptTemplate if necessary
+    if model.get("preprompt"):
+        prompt = model["preprompt"] + task + tests
+    prompt_template = model["chatPromptTemplate"].format(task=task, tests=tests)
+    
+    for _ in range(k):  # Assuming each call generates one solution
+        if use_adapter and adapter_id:
+            generate_params["adapter_id"] = adapter_id
+        else:
+            generate_params.pop("adapter_id", None)  # Remove adapter_id if it exists
+
+        # Generate the solution asynchronously
+        response = await client.generate(prompt_template, **generate_params)
+        solutions.append(response.generated_text)
+
+    return solutions
+
+def generate_solutions(task, tests, k=10, model_index=0, use_adapter=False, adapter_id=None):
+    solutions = []
+    model = MODELS[model_index]  # Select the model configuration based on the provided index
+    generate_params = model["parameters"]  # Get generation parameters from the model configuration
+    
+    # Prepare the prompt using the model's chatPromptTemplate if necessary
+    if model["preprompt"]:
+        prompt = model["preprompt"] + task + tests
+    prompt_template = model["chatPromptTemplate"].format(task=task, tests=tests)
+    
+    for _ in range(k):  # Assuming each call generates one solution
+        if use_adapter and adapter_id:
+            generate_params["adapter_id"] = adapter_id
+        else:
+            generate_params.pop("adapter_id", None)  # Remove adapter_id if it exists
+        
+        # Generate the solution
+        response = client.generate(prompt_template, **generate_params)
+        solutions.append(response.generated_text)
+    return solutions
+
+async def generate_and_evaluate_problems_async(dataset, MODELS, client):
+    pass_at_1 = 0
+
+    async for i, problem in tqdm(enumerate(dataset['test']), desc="Processing Problems", total=len(dataset['test'])):
+        task = problem['text']
+        test_cases = problem['test_list']
+
+        async def retry_solutions(task, test_cases, attempts=3):
+            for attempt in range(attempts):
+                try:
+                    solutions = await generate_solutions_async(task, str(test_cases), MODELS, client, k=1)
+                    return solutions
+                except Exception as e:
+                    print(f'Attempt {attempt + 1} failed with error:', e)
+                    if attempt == attempts - 1:
+                        raise
+
+        try:
+            solutions = await retry_solutions(task, test_cases)
+            print(f"evaluating problem {i}")
+            print("task: ", task)
+            print("solutions: ", solutions)
+
+            if eval_llm_top_k(solutions, test_cases, [1])[0]:
+                pass_at_1 += 1
+                print('passed')
+            else:
+                print('failed')
+
+            print(f'running average {pass_at_1/(i+1)}, {pass_at_1} correct, {i+1} total')
+            print()
+        except Exception as e:
+            print('Could not process the problem due to an error:', e)
 
 

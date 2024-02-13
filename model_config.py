@@ -30,7 +30,7 @@ MODELS_TOP1 = [
       "temperature": 0.001,
       "top_p": 0.95,
       "repetition_penalty": 1.2,
-      "top_k": 100,
+      "top_k": 200,
       "truncate": 512,
       "do_sample": False,
       "max_new_tokens": 512,  # Adjusted to match your server setup

@@ -19,10 +19,23 @@ along with this program. If not, see <http://www.apache.org/licenses/LICENSE-2.0
 
 import re
 from tqdm.asyncio import tqdm
+import multiprocessing
+from queue import Empty
+from multiprocessing import Queue
 
-def eval_llm_output(llm_output, test_list):
+def eval_llm_output(llm_output, test_list, timeout=5):  # timeout in seconds
+    def execute_tests(exec_globals, modified_test_list, result_queue):
+        try:
+            for test in modified_test_list:
+                exec(test, exec_globals)
+        except Exception as e:
+            print('test case failed:', e)
+            result_queue.put(False)
+            return
+        result_queue.put(True)
+    
     try:
-        # Step 1: Extract the Python function code and function name from the LLM output
+        # Extract the Python function code and function name
         function_code = re.search(r'\[PYTHON\](.*?)\[/PYTHON\]', llm_output, re.DOTALL).group(1).strip()
         function_name = re.search(r'def (\w+)\(', function_code).group(1)
     except Exception as e:
@@ -30,36 +43,40 @@ def eval_llm_output(llm_output, test_list):
         return False
 
     try:
-        # Prepare the environment to execute the code
+        # Prepare the environment
         exec_globals = {}
         exec(function_code, exec_globals)
     except Exception as e:
         print('exec failed:', e)
         return False
     
-    # Step 2: Dynamically modify the `test_list` to use the extracted function name
     modified_test_list = []
     for test in test_list:
         try:
-            # Extracting the existing function name pattern from the test case
             pattern = re.search(r'assert (\w+)\(', test).group(1)
-            # Replace the extracted pattern with the correct function name
             modified_test = test.replace(pattern, function_name)
             modified_test_list.append(modified_test)
         except Exception as e:
             print('Error modifying test case:', e)
             return False
-    
-    # Step 3: Execute the modified test cases
-    try:
-        for test in modified_test_list:
-            exec(test, exec_globals)
-    except Exception as e:
-        print('test case failed:', e)
+
+    result_queue = Queue()
+    #The reason to use multiprocessing is to avoid timeouts from endless loops returned by the llm
+    process = multiprocessing.Process(target=execute_tests, args=(exec_globals, modified_test_list, result_queue))
+    process.start()
+    process.join(timeout)
+    if process.is_alive():
+        process.terminate()
+        process.join()
+        print('Execution timed out')
         return False
-    
-    # If all tests pass without an assertion error
-    return True
+
+    try:
+        result = result_queue.get_nowait()
+        return result
+    except Empty:
+        print('No result received from test execution process.')
+        return False
 
 def eval_llm_top_k(llm_outputs, test_list, k):
     """

@@ -115,7 +115,10 @@ def eval_llm_top_k(llm_outputs, test_list, k):
     for llm_output in llm_outputs:
         attempts += 1
         # Try evaluating the current llm_output
-        if eval_llm_output(llm_output, test_list):
+        pass_test = eval_llm_output(llm_output, test_list)
+        print(f'llm_output attempt {attempts}: ' , llm_output)
+        print('pass_test: ' , pass_test)
+        if pass_test:
             # If eval_llm_output returns True, update results based on attempts
             for i, threshold in enumerate(k):
                 if attempts <= threshold:
@@ -172,8 +175,8 @@ def generate_solutions(task, tests, k=10, model_index=0, use_adapter=False, adap
         solutions.append(response.generated_text)
     return solutions
 
-async def generate_and_evaluate_problems_async(dataset, MODELS, client):
-    pass_at_1 = 0
+async def generate_and_evaluate_problems_async(dataset, MODELS, client, k =1):
+    pass_at_k = 0
 
     async for i, problem in tqdm(enumerate(dataset['test']), desc="Processing Problems", total=len(dataset['test'])):
         task = problem['text']
@@ -182,7 +185,7 @@ async def generate_and_evaluate_problems_async(dataset, MODELS, client):
         async def retry_solutions(task, test_cases, attempts=3):
             for attempt in range(attempts):
                 try:
-                    solutions = await generate_solutions_async(task, str(test_cases), MODELS, client, k=1)
+                    solutions = await generate_solutions_async(task, str(test_cases), MODELS, client, k=k)
                     return solutions
                 except Exception as e:
                     print(f'Attempt {attempt + 1} failed with error:', e)
@@ -190,19 +193,22 @@ async def generate_and_evaluate_problems_async(dataset, MODELS, client):
                         raise
 
         try:
-            solutions = await retry_solutions(task, test_cases)
             print(f"evaluating problem {i}")
             print("task: ", task)
-            print("solutions: ", solutions)
+            
+            solutions = await retry_solutions(task, test_cases)
+            
 
-            if eval_llm_top_k(solutions, test_cases, [1])[0]:
-                pass_at_1 += 1
+            if eval_llm_top_k(solutions, test_cases, [k])[0]:
+                pass_at_k += 1
                 print('passed')
             else:
                 print('failed')
 
-            print(f'running average {pass_at_1/(i+1)}, {pass_at_1} correct, {i+1} total')
-            print()
+            print(f'running average {pass_at_k/(i+1)}, {pass_at_k} correct, {i+1} total')
+            print(f'end of problem {i}')
+            print('----------------------------------')
+            print()      
         except Exception as e:
             print('Could not process the problem due to an error:', e)
 

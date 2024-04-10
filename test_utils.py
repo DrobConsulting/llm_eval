@@ -35,6 +35,22 @@ def test_eval_llm_output_success():
     ]
     
     assert eval_llm_output(llm_output, test_list) == True
+    
+def test_eval_llm_output_wrong_name_failure():
+    llm_output = """
+    [PYTHON]
+    def sum_max(my_list):
+        return max([sum(x) for x in my_list])
+    [/PYTHON]
+    """
+    test_list = [
+        'assert max_sum([[1, 2, 3], [4, 5, 6], [10, 11, 12], [7, 8, 9]]) == 33',
+        'assert max_sum([[0, 1, 1], [1, 1, 2], [3, 2, 1]]) == 6',
+        'assert max_sum([[0, 1, 3], [1, 2, 1], [9, 8, 2], [0, 1, 0], [6, 4, 8]]) == 19',
+        'assert max_sum([[0, -1, -1], [-1, -1, -2], [-3, -2, -1]]) == -2'
+    ]
+    
+    assert eval_llm_output(llm_output, test_list) == False
 
 def test_eval_llm_output_failure():
     llm_output = """

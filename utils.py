@@ -37,7 +37,6 @@ def eval_llm_output(llm_output, test_list, timeout=5):  # timeout in seconds
     try:
         # Extract the Python function code and function name
         function_code = re.search(r'\[PYTHON\](.*?)\[/PYTHON\]', llm_output, re.DOTALL).group(1).strip()
-        function_name = re.search(r'def (\w+)\(', function_code).group(1)
     except Exception as e:
         print('parsing failed:', e)
         return False
@@ -49,20 +48,10 @@ def eval_llm_output(llm_output, test_list, timeout=5):  # timeout in seconds
     except Exception as e:
         print('exec failed:', e)
         return False
-    
-    modified_test_list = []
-    for test in test_list:
-        try:
-            pattern = re.search(r'assert (\w+)\(', test).group(1)
-            modified_test = test.replace(pattern, function_name)
-            modified_test_list.append(modified_test)
-        except Exception as e:
-            print('Error modifying test case:', e)
-            return False
-
+      
     result_queue = Queue()
     #The reason to use multiprocessing is to avoid timeouts from endless loops returned by the llm
-    process = multiprocessing.Process(target=execute_tests, args=(exec_globals, modified_test_list, result_queue))
+    process = multiprocessing.Process(target=execute_tests, args=(exec_globals, test_list, result_queue))
     process.start()
     process.join(timeout)
     if process.is_alive():
